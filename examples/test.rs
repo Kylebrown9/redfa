@@ -11,10 +11,10 @@ fn main() {
         match line.trim().parse::<Regex<char>>() {
             Err(e) => println!("error: {}", e),
             Ok(x) => {
-                println!("ok: {:?}", x);
+                println!("Ok: {:?}", x);
                 let x = x.normalize();
-                println!("{:?}", x);
-                println!("{:?}", x.derivative().map(Normalize::normalize));
+                println!("Normalized: {:?}", x);
+                println!("Derivative/Normalized: {:?}", x.derivative().map(Normalize::normalize));
                 let (dfa, _mapping) = Dfa::from_derivatives(vec![x, Regex::Null]);
                 let dfa = dfa.map(|reg| reg.nullable());
                 println!("DFA: {:?}\n", dfa);

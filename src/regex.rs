@@ -33,11 +33,16 @@ struct Puller<A, B, Fun: FnMut(A) -> Result<Vec<A>, B>, Iter: Iterator> {
 }
 
 trait Pull<A>: Iterator + Sized {
-    fn pull<B, Fun: FnMut(A) -> Result<Vec<A>, B>>(self, f: Fun) -> Puller<A, B, Fun, Self>;
+    fn pull<B, Fun>(self, f: Fun) -> Puller<A, B, Fun, Self>
+    where
+        Fun: FnMut(A) -> Result<Vec<A>, B>;
 }
 
 impl<A, It: Iterator<Item=A>> Pull<A> for It {
-    fn pull<B, Fun: FnMut(A) -> Result<Vec<A>, B>>(self, f: Fun) -> Puller<A, B, Fun, Self> {
+    fn pull<B, Fun>(self, f: Fun) -> Puller<A, B, Fun, Self>
+    where
+        Fun: FnMut(A) -> Result<Vec<A>, B> {
+
         Puller {
             s: self,
             f: f,
@@ -196,6 +201,7 @@ pub enum ParseError {
     UnexpectedChar(&'static str, char),
     BadRange(&'static str, char, char),
 }
+
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -205,11 +211,17 @@ impl fmt::Display for ParseError {
         }
     }
 }
+
 struct Parser<I: Iterator<Item=char>> {
     it: Peekable<I>,
 }
+
 type Res<T> = Result<T, ParseError>;
-impl<I: Iterator<Item=char>> Parser<I> {
+
+impl<I> Parser<I>
+    where
+        I: Iterator<Item=char> {
+
     fn char(&mut self) -> Res<char> {
         match self.it.next() {
             Some('\\') => {
@@ -251,21 +263,26 @@ impl<I: Iterator<Item=char>> Parser<I> {
             None => panic!("char not nullable")
         }
     }
+
     fn char_first(c: char) -> bool {
+        // ['~', '|', '&', '[', ']', '(', ')', '*', '+', '~', '.'].iter().map(|other| c != other).all()
         c != '~' && c != '|' && c != '&'
             && c != '[' && c != ']'
             && c != '(' && c != ')'
             && c != '*' && c != '+'
             && c != '~' && c != '.'
     }
+
     fn char_group(c: char) -> bool {
         c != ']'
     }
+
     fn chars(&mut self) -> Res<Vec<char>> {
         let mut v = Vec::new();
+
         loop {
-            match self.it.peek() {
-                Some(&c) if Parser::<I>::char_group(c) => {
+            if let Some(&c) = self.it.peek() {
+                 if Parser::<I>::char_group(c) {
                     let c = self.char()?;
                     if let Some(&'-') = self.it.peek() {
                         self.it.next();
@@ -284,10 +301,11 @@ impl<I: Iterator<Item=char>> Parser<I> {
                     } else {
                         v.push(c);
                     }
-                }
-                _ => {
+                } else {
                     break;
                 }
+            } else {
+                break;
             }
         }
         Ok(v)

@@ -12,6 +12,10 @@ documentation = "http://goffrie.github.io/redfa"
 license = "MIT OR Apache-2.0"
 keywords = ["regex", "dfa"]
 
+[[example]]
+name = "test_example"
+path = "examples/test.rs"
+
 [features]
 
 unstable = []

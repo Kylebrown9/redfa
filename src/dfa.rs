@@ -1,33 +1,39 @@
-use derivatives::Differentiable;
+use derivatives::{ Differentiable, Derivative };
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use vec_map::VecMap;
 use bit_set::BitSet;
-
-/// A state in a DFA.
-#[derive(Debug, Clone)]
-pub struct State<T, V> {
-    /// Labelled transitions.
-    pub by_char: BTreeMap<T, u32>,
-    /// The default transition (for values not in `by_char`).
-    /// Note that `by_char` is assumed not to cover the entire alphabet (`T`).
-    pub default: u32,
-    /// A value associated with the state.
-    pub value: V,
-}
 
 /// A deterministic finite automaton (DFA), over the alphabet `T`.
 /// Each state is annotated with a value of type `V`.
 /// State 0 is the starting state.
 #[derive(Debug, Clone)]
 pub struct Dfa<T, V> {
-    /// The list of states.
+    /// A table of all of the different states
+    /// The position in this vec of a State is called its index
     pub states: Vec<State<T, V>>,
 }
 
+/// Represents a state in a DFA and the information relevant
+/// when it is reached.
+#[derive(Debug, Clone)]
+pub struct State<T, V> {
+    /// Maps the symbols to the index of the state to enter if it is enountered.
+    /// Note: This is not expected to cover the entire alphabet (`T`).
+    pub by_char: BTreeMap<T, u32>,
+    /// The the index of the state to enter if the next symbol is not in `by_char` 
+    pub default: u32,
+    /// The value associated with the state.
+    pub value: V,
+}
+
+/// Normalization is an optmization process
+/// which preserves the functional behavior of a type,
+/// but reduces it's size or compute time.
 pub trait Normalize {
     fn normalize(self) -> Self;
 }
 
+/// To Normalize a Vec of elements, normalize each of its elements
 impl<R: Normalize> Normalize for Vec<R> {
     fn normalize(self) -> Self {
         self.into_iter().map(Normalize::normalize).collect()
@@ -61,7 +67,7 @@ impl<T, V> Dfa<T, V> {
             let d = re.derivative();
             let mut by_char = BTreeMap::new();
             let default = index(&mut worklist, d.rest.normalize());
-            for (chars, dre) in d.d {
+            for Derivative { chars, res: dre } in d.d {
                 let ix = index(&mut worklist, dre.normalize());
                 // no point putting entries that are equal to the default
                 if ix != default {
