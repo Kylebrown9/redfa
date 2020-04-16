@@ -13,8 +13,12 @@ license = "MIT OR Apache-2.0"
 keywords = ["regex", "dfa"]
 
 [[example]]
-name = "test_example"
-path = "examples/test.rs"
+name = "cli_example"
+path = "examples/cli_example.rs"
+
+[[example]]
+name = "lexer"
+path = "examples/lexer.rs"
 
 [features]
 

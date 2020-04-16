@@ -1,9 +1,12 @@
 #![crate_type="bin"]
 extern crate redfa;
+
+use std::io::BufRead;
+
 use redfa::*;
 use redfa::derivatives::Differentiable;
 use redfa::dfa::Normalize;
-use std::io::BufRead;
+
 fn main() {
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {

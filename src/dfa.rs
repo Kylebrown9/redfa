@@ -26,9 +26,6 @@ pub struct State<T, V> {
     pub value: V,
 }
 
-/// Normalization is an optmization process
-/// which preserves the functional behavior of a type,
-/// but reduces it's size or compute time.
 pub trait Normalize {
     fn normalize(self) -> Self;
 }
@@ -40,13 +37,18 @@ impl<R: Normalize> Normalize for Vec<R> {
     }
 }
 
-impl<T, V> Dfa<T, V> {
+impl<T, V> Dfa<T, V>
+    where
+        T: Ord + Clone,
+        V: Ord {
+
     /// Construct a DFA from a list of differentiable objects.
     /// The elements of `initial` form the first states of the DFA.
     /// Returns the DFA, together with a mapping from derivatives to state numbers.
     pub fn from_derivatives(initial: Vec<V>) -> (Dfa<T, V>, BTreeMap<V, u32>)
-        where T: Ord,
-              V: Differentiable<T> + Normalize + Ord + Clone {
+        where 
+            V: Differentiable<T> + Normalize + Clone {
+
         fn index<V: Ord + Clone>(&mut (ref mut indices, ref mut next): &mut (BTreeMap<V, u32>, VecDeque<V>), re: V) -> u32 {
             let next_index = indices.len() as u32;
             *indices.entry(re.clone()) // FIXME: unnecessary allocation
@@ -99,8 +101,7 @@ impl<T, V> Dfa<T, V> {
     }
 
     /// Find the reverse transitions from each state in the DFA.
-    pub fn reverse(&self) -> Vec<(BTreeMap<&T, BTreeSet<usize> >, BTreeSet<usize>)>
-        where T: Ord {
+    pub fn reverse(&self) -> Vec<(BTreeMap<&T, BTreeSet<usize> >, BTreeSet<usize>)> {
         let mut result = vec![(BTreeMap::new(), BTreeSet::new()); self.states.len()];
         for (state_ix, state) in self.states.iter().enumerate() {
             let mut rev: BTreeMap<usize, BTreeSet<_>> = BTreeMap::new();
@@ -133,47 +134,55 @@ impl<T, V> Dfa<T, V> {
         result
     }
 
+        
+    /// Calculate the initial partition. The choice of initial partition
+    /// determines what states the algorithm considers distinguishable.
+    /// We only consider states that are reachable from the starting
+    /// state, so we traverse the DFA to find these states.
+    fn initial_partitions(&self) -> Vec<BTreeSet<usize>> {
+        let mut partitions: Vec<BTreeSet<usize>> = vec![];
+
+        let mut initial_partition = BTreeMap::new();
+        let mut worklist = VecDeque::new();
+        let mut seen = BitSet::new();
+
+        worklist.push_back(0);
+        seen.insert(0);
+        
+        while let Some(state_ix) = worklist.pop_front() {
+            let state = &self.states[state_ix];
+            let part = *initial_partition.entry(&state.value)
+                .or_insert_with(|| {
+                    let ix = partitions.len();
+                    partitions.push(BTreeSet::new());
+                    ix
+                });
+            partitions[part].insert(state_ix);
+            for &next in state.by_char.values()
+                .chain(Some(&state.default).into_iter()) {
+                if seen.insert(next as usize) {
+                    worklist.push_back(next as usize);
+                }
+            }
+        }
+
+        // The above code should always put state 0 in partition 0.
+        debug_assert!(partitions[0].contains(&0));
+        
+        partitions
+    }
+
     /// Minimize a DFA; i.e. find a DFA with the fewest states that is
     /// equivalent to the given DFA.
     /// Two DFAs are equivalent if, given the same string, they always lead to a
     /// state with the same associated value.
-    pub fn minimize(&self) -> Dfa<T, &V>
-        where T: Ord + Clone, V: Ord {
+    pub fn minimize(&self) -> Dfa<T, &V> {
 
         assert!(!self.states.is_empty());
 
         // `partitions` is a partition of the DFA states, representing the
         // current set of equivalence classes
-        let mut partitions: Vec<BTreeSet<usize>> = vec![];
-        {
-            // Calculate the initial partition. The choice of initial partition
-            // determines what states the algorithm considers distinguishable.
-            // We only consider states that are reachable from the starting
-            // state, so we traverse the DFA to find these states.
-            let mut initial_partition = BTreeMap::new();
-            let mut worklist = VecDeque::new();
-            let mut seen = BitSet::new();
-            worklist.push_back(0);
-            seen.insert(0);
-            while let Some(state_ix) = worklist.pop_front() {
-                let state = &self.states[state_ix];
-                let part = *initial_partition.entry(&state.value)
-                    .or_insert_with(|| {
-                        let ix = partitions.len();
-                        partitions.push(BTreeSet::new());
-                        ix
-                    });
-                partitions[part].insert(state_ix);
-                for &next in state.by_char.values()
-                    .chain(Some(&state.default).into_iter()) {
-                    if seen.insert(next as usize) {
-                        worklist.push_back(next as usize);
-                    }
-                }
-            }
-        }
-        // The above code should always put state 0 in partition 0.
-        debug_assert!(partitions[0].contains(&0));
+        let mut partitions: Vec<BTreeSet<usize>> = self.initial_partitions();
 
         let preimages = self.reverse();
         let mut worklist: BTreeSet<usize> = (0..partitions.len()).collect();
@@ -238,6 +247,7 @@ impl<T, V> Dfa<T, V> {
         // starting state.
         debug_assert!(partitions[0].contains(&0));
 
+        // A mapping from state to partition
         let partition: BTreeMap<usize, u32> = partitions.iter().enumerate()
             .flat_map(|(part_ix, part)| part.iter()
                       .map(move |&state_ix| (state_ix, part_ix as u32)))

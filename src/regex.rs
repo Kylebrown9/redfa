@@ -222,6 +222,16 @@ impl<I> Parser<I>
     where
         I: Iterator<Item=char> {
 
+    fn parse(it: I) -> Res<Regex<char>> {
+        let mut parser = Parser { it: it.peekable() };
+        let r = parser.alt()?;
+        if let Some(c) = parser.it.next() {
+            Err(ParseError::UnexpectedChar("bad character in regex", c))
+        } else {
+            Ok(r)
+        }
+    }
+
     fn char(&mut self) -> Res<char> {
         match self.it.next() {
             Some('\\') => {
@@ -265,7 +275,8 @@ impl<I> Parser<I>
     }
 
     fn char_first(c: char) -> bool {
-        // ['~', '|', '&', '[', ']', '(', ')', '*', '+', '~', '.'].iter().map(|other| c != other).all()
+        // ['~', '|', '&', '[', ']', '(', ')', '*', '+', '~', '.']
+        //    .iter().map(|other| c != other).all()
         c != '~' && c != '|' && c != '&'
             && c != '[' && c != ']'
             && c != '(' && c != ')'
@@ -415,15 +426,6 @@ impl<I> Parser<I>
             }
         }
         Ok(Alt(Vec::new(),r))
-    }
-    fn parse(it: I) -> Res<Regex<char>> {
-        let mut parser = Parser { it: it.peekable() };
-        let r = parser.alt()?;
-        if let Some(c) = parser.it.next() {
-            Err(ParseError::UnexpectedChar("bad character in regex", c))
-        } else {
-            Ok(r)
-        }
     }
 }
 
