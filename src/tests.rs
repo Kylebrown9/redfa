@@ -121,6 +121,33 @@ macro_rules! assert_not_equiv {
 }
 
 #[test]
+fn test_product() {
+    fn to_dfa(s: &str) -> Dfa<char, bool> {
+        Dfa::from_derivatives(vec![s.parse::<Regex<char>>().unwrap()]).0.map(|r| r.nullable()).minimize().map(|v| *v)
+    }
+    let dfa1 = to_dfa("a*b*");
+    let dfa2 = to_dfa("([ab][ab])*");
+
+    let comb = dfa1.product(dfa2, |l, r| *l && *r).minimize().map(|v| *v);
+
+    assert_equiv!(comb, dfa! {
+        5;
+        0, 'a', 1;
+        0, 'b', 2;
+        0, 3;
+        1, 'a', 0;
+        1, 'b', 4;
+        1, 3;
+        2, 'b', 4;
+        2, 3;
+        3, 3;
+        4;
+        4, 'b', 2;
+        4, 3;
+    });
+}
+
+#[test]
 fn test_dfa_minimize() {
     assert_eq!(dfa! {
         9;
