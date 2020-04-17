@@ -41,16 +41,14 @@ impl<T> Lexer<T> {
         let mut iterator = iterable.into_iter();
 
         let (first_r, first_t) = iterator.next()?;
-        let mut dfa_comb = Lexer::make_dfa(first_r, first_t)?;
+        let mut dfa = Lexer::make_dfa(first_r, first_t)?;
 
         while let Some((regex, token)) = iterator.next() {
             let new_dfa = Lexer::make_dfa(regex, token)?;
-            dfa_comb = dfa_comb.product(new_dfa, Lexer::<T>::overlay);
+            dfa = dfa.product(new_dfa, Lexer::<T>::overlay).minimize().map(|v| *v);
         }
 
-        Some(Lexer {
-            dfa: dfa_comb.minimize().map(|v| *v)
-        })
+        Some(Lexer { dfa })
     }
     
     fn make_dfa(regex_str: &str, token: T) -> Option<Dfa<char, Option<T>>>
