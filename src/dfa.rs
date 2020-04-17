@@ -159,10 +159,10 @@ impl<T, V> Dfa<T, V>
 
     pub fn product<C, V2, V3>(&self, other: Dfa<T, V2>, mut comb: C) -> Dfa<T, V3>
         where
-            T: Ord + Copy + Debug,
+            T: Ord + Copy,
             C: FnMut(&V, &V2) -> V3,
             V2: Clone,
-            V3: Clone + Debug {
+            V3: Clone {
         
 
         #[derive(Debug, Clone)]
